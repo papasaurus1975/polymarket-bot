@@ -1,0 +1,13 @@
+.env
+*.pyc
+__pycache__/
+*.db
+*.sqlite
+logs/
+.venv/
+venv/
+*.keystore
+*.json.enc
+dist/
+build/
+.pytest_cache/
