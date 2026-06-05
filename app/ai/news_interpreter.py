@@ -4,7 +4,7 @@ Rule-based scoring when AI is unavailable; OpenAI layer when configured.
 """
 import re
 import structlog
-from app.risk.kill_switch import is_active
+from app.ai.utils import ai_available
 
 log = structlog.get_logger()
 
@@ -53,7 +53,7 @@ def score_relevance(title: str, market_question: str) -> float:
 
 def enrich_news_with_sentiment(news_items: list[dict]) -> list[dict]:
     """Add sentiment_score to each news item. Uses OpenAI if available, else rule-based."""
-    if _ai_available():
+    if ai_available():
         return _enrich_with_openai(news_items)
     log.debug("news_sentiment_rule_based", count=len(news_items))
     for item in news_items:
@@ -90,16 +90,6 @@ def get_market_sentiment(news_items: list[dict], market_question: str,
     if weight_total == 0:
         return 0.0
     return round(weighted_sum / weight_total, 4)
-
-
-def _ai_available() -> bool:
-    if is_active("ai"):
-        return False
-    try:
-        from app.config import settings
-        return bool(settings.ai_scoring_enabled and settings.openai_api_key)
-    except Exception:
-        return False
 
 
 def _enrich_with_openai(news_items: list[dict]) -> list[dict]:

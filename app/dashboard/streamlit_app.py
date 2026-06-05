@@ -118,10 +118,14 @@ with tabs[1]:
                     for s in signals if s.signal_id == sid))
             sel_sig = next(s for s in signals if s.signal_id == sel_id)
 
-            # Order preview
+            # Order preview — compute Kelly once and cache in session state
+            from app.risk.position_sizing import kelly_size
+            kelly_key = f"kelly_{sel_id}"
+            if kelly_key not in st.session_state:
+                st.session_state[kelly_key] = kelly_size(sel_sig.estimated_edge, float(bankroll))
+            kelly = st.session_state[kelly_key]
+
             with st.expander("📋 Order Preview", expanded=True):
-                from app.risk.position_sizing import kelly_size
-                kelly = kelly_size(sel_sig.estimated_edge, float(bankroll))
                 p1, p2, p3, p4 = st.columns(4)
                 p1.metric("Side", sel_sig.recommended_side)
                 p2.metric("Entry Price", f"{sel_sig.polymarket_price:.3f}")
@@ -148,8 +152,7 @@ with tabs[1]:
 
             if col_approve.button("📬 Submit for Approval"):
                 from app.trading.approval_queue import submit_for_approval
-                kelly_info = kelly_size(sel_sig.estimated_edge, float(bankroll))
-                req = submit_for_approval(sel_sig, kelly_info)
+                req = submit_for_approval(sel_sig, kelly)
                 st.success(f"Submitted for approval: **{req['request_id']}**")
 
 # ── Tab 3: Paper Trading ─────────────────────────────────────────────────────
@@ -169,19 +172,19 @@ with tabs[2]:
     m5.metric("Brier Score", f"{metrics['brier_score']:.3f}" if metrics["brier_score"] else "—")
 
     st.divider()
-    open_trades = [t for t in all_trades if t.status == "OPEN"]
-    closed_trades = [t for t in all_trades if t.status == "CLOSED"]
+    open_trades = [t for t in all_trades if t["status"] == "OPEN"]
+    closed_trades = [t for t in all_trades if t["status"] == "CLOSED"]
 
     if open_trades:
         st.subheader(f"Open ({len(open_trades)})")
-        rows = [{"ID": t.trade_id, "Question": t.market_question[:65],
-                 "Side": t.side, "Entry": f"{t.entry_price:.3f}",
-                 "Size": f"${t.size:.2f}", "Edge": f"{t.edge_at_entry:+.3f}",
-                 "Entered": str(t.entry_time)[:16]} for t in open_trades]
+        rows = [{"ID": t["trade_id"], "Question": (t["market_question"] or "")[:65],
+                 "Side": t["side"], "Entry": f"{t['entry_price']:.3f}",
+                 "Size": f"${t['size']:.2f}", "Edge": f"{t['edge_at_entry']:+.3f}",
+                 "Entered": str(t["entry_time"])[:16]} for t in open_trades]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
         with st.expander("Close a trade"):
-            tid = st.selectbox("Trade", [t.trade_id for t in open_trades])
+            tid = st.selectbox("Trade", [t["trade_id"] for t in open_trades])
             exit_p = st.slider("Exit Price", 0.01, 0.99, 0.50, step=0.01)
             outcome = st.selectbox("Outcome", ["", "YES", "NO"])
             reason = st.selectbox("Reason", ["edge_closed","profit_target","stop_loss","expiration","manual"])
@@ -193,10 +196,11 @@ with tabs[2]:
 
     if closed_trades:
         st.subheader(f"Closed ({len(closed_trades)})")
-        rows = [{"ID": t.trade_id, "Q": t.market_question[:55],
-                 "Side": t.side, "P&L": f"${t.profit_loss:.2f}" if t.profit_loss else "—",
-                 "Outcome": t.final_outcome or "—",
-                 "✓": "✅" if t.model_accuracy else ("❌" if t.model_accuracy is False else "—")} for t in closed_trades]
+        rows = [{"ID": t["trade_id"], "Q": (t["market_question"] or "")[:55],
+                 "Side": t["side"],
+                 "P&L": f"${t['profit_loss']:.2f}" if t.get("profit_loss") is not None else "—",
+                 "Outcome": t.get("final_outcome") or "—",
+                 "✓": "✅" if t.get("model_accuracy") else ("❌" if t.get("model_accuracy") is False else "—")} for t in closed_trades]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
 
     # Adaptive recommendations
