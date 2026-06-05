@@ -12,6 +12,8 @@ def realized_vol(prices: list[float], window: int = 30) -> float:
         raise ValueError("Need at least 2 prices")
     arr = np.array(prices[-window - 1:])
     log_returns = np.diff(np.log(arr))
+    if len(log_returns) < 2:
+        raise ValueError(f"Need at least 2 log returns, got {len(log_returns)}")
     return float(np.std(log_returns, ddof=1) * np.sqrt(365))
 
 

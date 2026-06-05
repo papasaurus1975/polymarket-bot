@@ -110,9 +110,8 @@ def test_compute_metrics_with_trades(tmp_path, monkeypatch):
     insert(-5.0, 0.60, "NO")
     insert(8.0, 0.65, "YES")
 
-    with db_module.get_session() as s:
-        trades = s.query(PaperTrade).all()
-        s.expunge_all()
+    from app.trading.paper_trader import get_all_trades
+    trades = get_all_trades()
 
     m = compute_metrics(trades)
     assert m["total_trades"] == 3

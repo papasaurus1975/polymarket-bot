@@ -101,7 +101,10 @@ def scan(limit: int = 200, bankroll: float = 1000.0,
                     except Exception:
                         continue
                 if symbol not in vol_cache:
-                    vol_cache[symbol] = get_realized_vol(symbol)
+                    try:
+                        vol_cache[symbol] = get_realized_vol(symbol)
+                    except Exception:
+                        continue
 
                 spot = price_cache[symbol]
                 vol = vol_cache[symbol]

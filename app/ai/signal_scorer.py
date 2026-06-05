@@ -3,7 +3,7 @@
 Generates plain-English rationale for each signal.
 """
 import structlog
-from app.risk.kill_switch import is_active
+from app.ai.utils import ai_available
 
 log = structlog.get_logger()
 
@@ -14,7 +14,7 @@ def explain_signal(signal, news_items: list[dict] | None = None,
     Generate a plain-English explanation for a signal.
     Uses OpenAI if available, otherwise builds a rule-based explanation.
     """
-    if _ai_available():
+    if ai_available():
         return _explain_with_openai(signal, news_items, events)
     return _explain_rule_based(signal, news_items, events)
 
@@ -103,11 +103,3 @@ def score_signal(signal) -> float:
     return round((edge * 0.5) + (liquidity * 0.3) + (resolution * 0.2), 4)
 
 
-def _ai_available() -> bool:
-    if is_active("ai"):
-        return False
-    try:
-        from app.config import settings
-        return bool(settings.ai_scoring_enabled and settings.openai_api_key)
-    except Exception:
-        return False

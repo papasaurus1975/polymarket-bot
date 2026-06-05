@@ -25,8 +25,11 @@ def reconcile(wallet_address: str) -> dict:
     # Fetch on-chain positions
     try:
         onchain = get_positions(wallet_address)
-        onchain_ids = {p.get("conditionId") or p.get("market_id"): p
-                       for p in onchain if p}
+        onchain_ids = {
+            p.get("conditionId") or p.get("market_id"): p
+            for p in onchain
+            if p and (p.get("conditionId") or p.get("market_id"))
+        }
     except Exception as e:
         log.error("reconcile_onchain_fetch_failed", error=str(e))
         _log_risk_event("RECONCILE_FETCH_FAILED", str(e), severity="HIGH")

@@ -58,15 +58,30 @@ def simulate_fill(signal: Signal, orderbook: dict | None = None) -> dict:
     }
 
 
+_SNAP_KEYS = [
+    "trade_id", "signal_id", "market_id", "market_question", "market_type",
+    "strategy_name", "entry_time", "entry_price", "side", "size",
+    "model_probability_at_entry", "market_probability_at_entry", "edge_at_entry",
+    "resolution_source_match_score", "simulated_fill_ratio", "simulated_slippage",
+    "fees_simulated", "status",
+]
+
+_FULL_SNAP_KEYS = _SNAP_KEYS + [
+    "exit_time", "exit_price", "exit_reason", "profit_loss",
+    "max_adverse_excursion", "max_favorable_excursion",
+    "final_outcome", "actual_resolution_price", "model_accuracy",
+    "calibration_error", "notes", "created_at",
+]
+
+
 def _trade_snapshot(trade: PaperTrade) -> dict:
-    """Convert ORM object to a plain dict safe to use after session closes."""
-    return {k: getattr(trade, k) for k in [
-        "trade_id", "signal_id", "market_id", "market_question", "market_type",
-        "strategy_name", "entry_time", "entry_price", "side", "size",
-        "model_probability_at_entry", "market_probability_at_entry", "edge_at_entry",
-        "resolution_source_match_score", "simulated_fill_ratio", "simulated_slippage",
-        "fees_simulated", "status",
-    ]}
+    """Minimal snapshot used at entry time."""
+    return {k: getattr(trade, k) for k in _SNAP_KEYS}
+
+
+def _full_snap(trade: PaperTrade) -> dict:
+    """Full snapshot including all nullable columns — must be called inside a session."""
+    return {k: getattr(trade, k) for k in _FULL_SNAP_KEYS}
 
 
 def enter_trade(signal: Signal) -> dict | None:
@@ -166,17 +181,15 @@ def close_trade(trade_id: str, exit_price: float, exit_reason: str,
     return snapshot
 
 
-def get_open_trades() -> list[PaperTrade]:
+def get_open_trades() -> list[dict]:
     init_db()
     with get_session() as session:
         trades = session.query(PaperTrade).filter(PaperTrade.status == "OPEN").all()
-        session.expunge_all()
-        return trades
+        return [_full_snap(t) for t in trades]
 
 
-def get_all_trades() -> list[PaperTrade]:
+def get_all_trades() -> list[dict]:
     init_db()
     with get_session() as session:
         trades = session.query(PaperTrade).order_by(PaperTrade.created_at.desc()).all()
-        session.expunge_all()
-        return trades
+        return [_full_snap(t) for t in trades]

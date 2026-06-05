@@ -4,7 +4,7 @@ Rule-based primary; OpenAI enhancement when configured.
 """
 import re
 import structlog
-from app.risk.kill_switch import is_active
+from app.ai.utils import ai_available
 
 log = structlog.get_logger()
 
@@ -38,7 +38,7 @@ def classify_market_with_ai(market: dict) -> dict:
     """
     rule_type = classify_market(market)
 
-    if not _ai_available():
+    if not ai_available():
         return {
             "type": rule_type,
             "clarity_score": _rule_clarity(rule_type),
@@ -49,7 +49,7 @@ def classify_market_with_ai(market: dict) -> dict:
     try:
         from openai import OpenAI
         from app.config import settings
-        client = OpenAI(api_key=settings.openai_api_key)
+        client = OpenAI(api_key=settings.openai_api_key)  # noqa: S106
 
         prompt = f"""Classify this Polymarket prediction market question:
 
@@ -92,13 +92,3 @@ D = Ambiguous/subjective — cannot model reliably"""
 
 def _rule_clarity(mtype: str) -> float:
     return {"A": 0.85, "B": 0.65, "C": 0.70, "D": 0.20}.get(mtype, 0.5)
-
-
-def _ai_available() -> bool:
-    if is_active("ai"):
-        return False
-    try:
-        from app.config import settings
-        return bool(settings.ai_scoring_enabled and settings.openai_api_key)
-    except Exception:
-        return False

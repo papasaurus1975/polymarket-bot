@@ -230,9 +230,25 @@ def _on_execution_error(token_id: str, error: str):
 
 
 def _get_nonce() -> int:
-    """Increment and return a nonce. In production, persist this."""
-    import time
-    return int(time.time() * 1000)
+    """Return a monotonically incrementing nonce persisted in the DB."""
+    import json
+    from app.database import get_session, init_db, AuditLog
+    init_db()
+    with get_session() as session:
+        last = (
+            session.query(AuditLog)
+            .filter(AuditLog.event_type == "NONCE")
+            .order_by(AuditLog.created_at.desc())
+            .first()
+        )
+        last_nonce = json.loads(last.data).get("nonce", 0) if last else 0
+        nonce = max(last_nonce + 1, int(__import__("time").time() * 1000))
+        session.add(AuditLog(
+            event_type="NONCE",
+            data=json.dumps({"nonce": nonce}),
+            created_at=datetime.now(timezone.utc),
+        ))
+    return nonce
 
 
 def _get_bankroll_estimate() -> float:

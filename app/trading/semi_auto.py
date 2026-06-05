@@ -22,6 +22,11 @@ def route_signal(signal: Signal, bankroll: float = 1000.0) -> dict:
         return {"action": "blocked", "reason": "kill switch active"}
 
     mode = settings.app_mode
+    from app.compliance import check_compliance
+    try:
+        check_compliance(mode)
+    except RuntimeError as e:
+        return {"action": "blocked", "reason": str(e)}
 
     if mode == "research":
         log.info("signal_research_only", signal_id=signal.signal_id,

@@ -50,6 +50,8 @@ def execute_live_order(
     keystore_path: str,
     passphrase: str,
     confirmed_checklist: list[str] | None = None,
+    signal_id: str = "unknown",
+    approval_request_id: str | None = None,
 ) -> dict:
     """
     Execute a live CLOB order with full safety stack:
@@ -95,9 +97,9 @@ def execute_live_order(
     init_db()
     trade = LiveTrade(
         trade_id=str(uuid.uuid4())[:12],
-        signal_id=result.get("order_id", "unknown"),
+        signal_id=signal_id,
         market_id=token_id,
-        clob_order_id=result.get("order_id"),
+        clob_order_id=result.get("order_id") or result.get("orderID"),
         entry_time=datetime.now(timezone.utc),
         entry_price=price,
         side=side,
