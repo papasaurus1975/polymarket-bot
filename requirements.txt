@@ -28,6 +28,9 @@ structlog==24.2.0
 # web3==6.19.0
 # eth-account==0.11.2
 
+# News / RSS
+feedparser==6.0.11
+
 # Testing
 pytest==8.2.0
 pytest-asyncio==0.23.7
