@@ -82,6 +82,40 @@ class ResolutionEvent(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class AuditLog(Base):
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_type: Mapped[str] = mapped_column(String, index=True)
+    data: Mapped[str] = mapped_column(Text, default="{}")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
+class LiveTrade(Base):
+    __tablename__ = "live_trades"
+
+    trade_id: Mapped[str] = mapped_column(String, primary_key=True)
+    signal_id: Mapped[str] = mapped_column(String, index=True)
+    market_id: Mapped[str] = mapped_column(String, index=True)
+    clob_order_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    entry_time: Mapped[datetime] = mapped_column(DateTime)
+    entry_price: Mapped[float] = mapped_column(Float)
+    side: Mapped[str] = mapped_column(String(3))
+    size_requested: Mapped[float] = mapped_column(Float)
+    size_filled: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fill_price_avg: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exit_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    exit_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    exit_reason: Mapped[str | None] = mapped_column(String, nullable=True)
+    profit_loss: Mapped[float | None] = mapped_column(Float, nullable=True)
+    fees_actual: Mapped[float | None] = mapped_column(Float, nullable=True)
+    strategy_name: Mapped[str] = mapped_column(String)
+    onchain_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    reconciliation_status: Mapped[str] = mapped_column(String, default="PENDING")
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 def get_engine():
     from app.config import settings
     if settings.simple_mode:
