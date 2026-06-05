@@ -24,9 +24,9 @@ streamlit==1.35.0
 # Logging
 structlog==24.2.0
 
-# Web3 / Signing (Phase 5+)
-web3==6.19.0
-eth-account==0.11.2
+# Web3 / Signing (Phase 5+ — install separately when needed)
+# web3==6.19.0
+# eth-account==0.11.2
 
 # Testing
 pytest==8.2.0
