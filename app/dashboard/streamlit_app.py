@@ -20,7 +20,7 @@ c4.metric("Phase", "5 — Semi-Auto")
 st.divider()
 
 tabs = st.tabs(["📋 Markets", "🎯 Signals", "📈 Paper Trading",
-                "✅ Approval Queue", "💼 Wallet"])
+                "✅ Approval Queue", "💼 Wallet", "🔴 Live Execution"])
 
 # ── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -308,20 +308,77 @@ with tabs[4]:
         else:
             st.info("No open positions found for this address.")
 
+    st.info("See the Live Execution tab for the full pre-live checklist and emergency controls.")
+
+# ── Tab 6: Live Execution ────────────────────────────────────────────────────
+with tabs[5]:
+    from app.trading.live_trader import verify_pre_live_checklist, CHECKLIST_ITEMS
+
+    st.subheader("🔴 Live Execution — Phase 6")
+    if settings.live_trading_enabled:
+        st.error("⚠️ LIVE TRADING IS ENABLED — Real money at risk")
+    else:
+        st.info("Live trading disabled. Set LIVE_TRADING_ENABLED=true in .env only after completing checklist.")
+
     st.divider()
     st.subheader("Pre-Live Checklist")
-    st.caption("All items must be checked before enabling live trading (Phase 6).")
-    checklist = [
-        "Explicit user confirmation (typed confirmation phrase)",
-        "Valid Polygon wallet with funded L2 USDC balance",
-        "EIP-712 signing tested successfully on testnet",
-        "Compliance approval confirmed",
-        "Successful paper-trading period (minimum 4 weeks recommended)",
-        "Paper trading P&L positive with Sharpe > 1.0",
-        "All risk limits configured and tested",
-        "Kill switch tested (manual and auto)",
-        "Logging verified (all events persisting to database)",
-        "Emergency shutdown tested",
-    ]
-    for item in checklist:
-        st.checkbox(item, value=False, key=f"check_{item[:20]}")
+    checklist_labels = {
+        "user_confirmation": "Explicit user confirmation (typed phrase)",
+        "wallet_funded": "Polygon wallet funded with L2 USDC",
+        "eip712_tested": "EIP-712 signing tested on testnet",
+        "compliance_approved": "Compliance approval confirmed",
+        "paper_trading_complete": "Paper-trading period complete (≥4 weeks)",
+        "paper_pnl_positive": "Paper P&L positive with Sharpe > 1.0",
+        "risk_limits_configured": "All risk limits configured and tested",
+        "kill_switch_tested": "Kill switches tested (manual and auto)",
+        "logging_verified": "Logging verified (all events persisting to DB)",
+        "emergency_shutdown_tested": "Emergency shutdown tested",
+    }
+    confirmed = [k for k, label in checklist_labels.items()
+                 if st.checkbox(label, key=f"live_chk_{k}")]
+    result = verify_pre_live_checklist(confirmed)
+    st.progress(result["completed"] / result["total"],
+                text=f"{result['completed']}/{result['total']} confirmed")
+    if result["passed"]:
+        st.success("✅ All items confirmed — live execution unlocked")
+
+    st.divider()
+    st.subheader("On-Chain Reconciliation")
+    recon_addr = st.text_input("Wallet address", placeholder="0x...", key="recon_addr")
+    if st.button("🔄 Reconcile") and recon_addr:
+        with st.spinner("Comparing on-chain vs local DB..."):
+            from app.trading.reconciler import reconcile
+            rep = reconcile(recon_addr)
+        fn = {"OK": st.success, "MISMATCH": st.warning}.get(rep["status"], st.error)
+        fn(f"**{rep['status']}** | on-chain={rep.get('onchain_count',0)} | local={rep.get('local_count',0)}")
+        if rep.get("ghost_positions"):
+            st.warning(f"Ghost positions: {rep['ghost_positions']}")
+        if rep.get("phantom_positions"):
+            st.error(f"Phantom positions: {rep['phantom_positions']}")
+
+    st.divider()
+    st.subheader("Emergency Controls")
+    c_shut, c_audit = st.columns(2)
+    with c_shut:
+        phrase = st.text_input("Type SHUTDOWN to confirm", key="shutdown_confirm")
+        if st.button("🚨 EMERGENCY SHUTDOWN", type="primary"):
+            if phrase == "SHUTDOWN":
+                from app.polymarket.execution import emergency_shutdown
+                res = emergency_shutdown(reason="dashboard_user")
+                st.error(res["message"])
+                st.rerun()
+            else:
+                st.error("Type exactly 'SHUTDOWN' to confirm")
+    with c_audit:
+        st.subheader("Audit Log")
+        try:
+            from app.database import AuditLog
+            init_db()
+            with get_session() as s:
+                entries = s.query(AuditLog).order_by(AuditLog.created_at.desc()).limit(15).all()
+                rows = [{"Time": str(e.created_at)[:19], "Event": e.event_type,
+                         "Data": e.data[:60]} for e in entries]
+            st.dataframe(pd.DataFrame(rows) if rows else pd.DataFrame(),
+                         use_container_width=True, hide_index=True)
+        except Exception as e:
+            st.warning(f"Audit log: {e}")
