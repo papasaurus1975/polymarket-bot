@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(winget --version)",
+      "PowerShell(scoop --version 2>$null)",
+      "PowerShell(choco --version 2>$null)",
+      "PowerShell(refreshenv 2>$null; $env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\",\"User\"\\); gh auth login --web -h github.com)"
+    ]
+  }
+}
